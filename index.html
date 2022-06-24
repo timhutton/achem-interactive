@@ -54,8 +54,19 @@ function get_connection_force_on_a( a, b ) {
     var x = sub( a, b );
     var ab2 = len2( x );
     var ab = Math.sqrt( ab2 );
-    var k = 0.3;
+    var k = 0.15;
     var d = target_bond_length;
+    var ret = mul( x, k * ( d - ab ) / ab );
+    return ret;
+}
+
+function get_collision_force_on_a( a, b ) {
+    var x = sub( a, b );
+    var ab2 = len2( x );
+    var ab = Math.sqrt( ab2 );
+    var k = 0.1;
+    var d = radius * 2.6;
+    if( ab > d ) { return p2(0,0); } // no force if atoms aren't overlapping
     var ret = mul( x, k * ( d - ab ) / ab );
     return ret;
 }
@@ -75,6 +86,16 @@ function relax() {
         forces[iA] = add( forces[iA], m );
         forces[iB] = sub( forces[iB], m );
     });
+    // add a collision force where atoms are overlapping
+    for(var iA = 0; iA < atoms.length; iA++) {
+        for(var iB = iA + 1; iB < atoms.length; iB++) {
+            var a = atoms[iA];
+            var b = atoms[iB];
+            var m = get_collision_force_on_a( a.p, b.p );
+            forces[iA] = add( forces[iA], m );
+            forces[iB] = sub( forces[iB], m );
+        }
+    }
     // apply the movement
     for(var i = 0; i < atoms.length; i++) {
         atoms[i].p = add( atoms[i].p, forces[i] );
@@ -95,11 +116,17 @@ function init() {
     ctx = canvas.getContext('2d');
 
     const iA = addAtom( p2(0, 0), 'a', 2 );
-    const iB = addAtom( p2(1, 0), 'b', 3 );
-    const iC = addAtom( p2(1, 1), 'c', 5 );
+    const iB = addAtom( p2(0.5, 0), 'b', 3 );
+    const iC = addAtom( p2(1, 0), 'c', 5 );
+    const iD = addAtom( p2(3, 0.6), 'd', 4 );
+    const iE = addAtom( p2(0.5, 0.6), 'e', 0 );
+    const iF = addAtom( p2(0, 0.5), 'f', 6 );
     addBond( iA, iB );
     addBond( iB, iC );
-    addBond( iC, iA );
+    addBond( iC, iD );
+    addBond( iD, iE );
+    addBond( iE, iF );
+    addBond( iF, iA );
 
     redraw();
 
