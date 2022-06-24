@@ -158,19 +158,25 @@ function redraw() {
     ctx.stroke();
 
     // draw atoms
-    ctx.strokeStyle = 'black';
-    ctx.fillStyle = 'white';
-    ctx.lineWidth = 3;
     atoms.forEach( atom => drawAtom(atom) );
-
-    // TODO: label
 }
 
 function drawAtom(atom) {
+    ctx.strokeStyle = 'black';
+    ctx.fillStyle = 'white';
+    ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc( atom.p.x * scale + offset.x, atom.p.y * scale + offset.x, radius * scale, 0, Math.PI * 2 );
     ctx.fill();
     ctx.stroke();
+
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'black';
+    ctx.fillStyle = 'black';
+    ctx.font = '20px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(atom.type + atom.state, atom.p.x * scale + offset.x, atom.p.y * scale + offset.x);
 }
 
 function animate() {
