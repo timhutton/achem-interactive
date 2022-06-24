@@ -19,34 +19,40 @@ function atom(pos, type, state) {
     return { p:pos, type: type, state: state };
 }
 
-var target_bond_length = 1;
-var radius = target_bond_length / 3.0;
-var scale = 60;
-var offset = p2(200, 200);
-var atoms = [];
-var bonds = [];
-
-
 function getMousePos(canvas, evt) {
     var rect = canvas.getBoundingClientRect();
     return p2( evt.clientX - rect.left, evt.clientY - rect.top );
 }
 
+function getMouseArenaPos(canvas, evt) {
+    var pos = getMousePos(canvas, evt);
+    return mul( sub( pos, offset ), 1.0 / scale );
+}
+
 function onMouseMove( evt ) {
-    var pos = getMousePos( canvas, evt );
+    if( isDragging ) {
+        var pos = getMouseArenaPos( canvas, evt );
+        atoms[atomBeingDragged].p = add( pos, dragOffset );
+        redraw();
+    }
 }
 
 function onMouseDown( evt ) {
-    var pos = getMousePos( canvas, evt );
+    var pos = getMouseArenaPos( canvas, evt );
+    for(var i = 0; i < atoms.length; i++) {
+        var atom = atoms[i];
+        if( dist(atom.p, pos ) < radius ) {
+            isDragging = true;
+            dragOffset = sub( atom.p, pos );
+            atomBeingDragged = i;
+            break;
+        }
+    }
 }
 
 function onMouseUp( evt ) {
+    isDragging = false;
     redraw();
-}
-
-function pointInRect( p, rect ) {
-    return p.x > rect.x && p.x < ( rect.x + rect.width ) &&
-           p.y > rect.y && p.y < ( rect.y + rect.height );
 }
 
 // too close = repulsion, too far = attraction
@@ -114,6 +120,15 @@ function addBond( iA, iB ) {
 function init() {
     canvas = document.getElementById('canvas');
     ctx = canvas.getContext('2d');
+
+    target_bond_length = 1;
+    radius = target_bond_length / 3.0;
+    scale = 60;
+    offset = p2(200, 200);
+    atoms = [];
+    bonds = [];
+
+    isDragging = false;
 
     const iA = addAtom( p2(0, 0), 'a', 2 );
     const iB = addAtom( p2(0.5, 0), 'b', 3 );
