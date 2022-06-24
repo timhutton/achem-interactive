@@ -4,33 +4,27 @@
 <meta charset="utf-8">
 <script>
 
-function p3( x, y, z ) { return { x:x, y:y, z:z }; }
 function p2( x, y ) { return { x:x, y:y }; }
-function origin() { return p3(0,0,0); }
-function xaxis() { return p3(1,0,0); }
-function yaxis() { return p3(0,1,0); }
-function zaxis() { return p3(0,0,0); }
-function add( a, b ) { return p3( a.x + b.x, a.y + b.y, a.z + b.z ); }
-function sub( a, b ) { return p3( a.x - b.x, a.y - b.y, a.z - b.z ); }
-function mul( a, f ) { return p3( a.x * f, a.y * f, a.z * f ); }
-function dot( a, b ) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+function add( a, b ) { return p2( a.x + b.x, a.y + b.y ); }
+function sub( a, b ) { return p2( a.x - b.x, a.y - b.y ); }
+function mul( a, f ) { return p2( a.x * f, a.y * f ); }
+function dot( a, b ) { return a.x * b.x + a.y * b.y; }
 function len2( a ) { return dot(a,a); }
 function dist( a, b ) { return Math.sqrt( len2( sub( a, b ) ) ); }
-function assign( a, b ) { a.x = b.x; a.y = b.y; a.z = b.z; }
+function assign( a, b ) { a.x = b.x; a.y = b.y; }
 function normalize( a ) { return mul( a, 1 / Math.sqrt( len2( a ) ) ); }
-function cross( a, b ) { return p3( a.y * b.z - a.z * b.y, a.z*b.x - a.x * b.z, a.x * b.y - a.y * b.x ); }
 function mid( a, b ) { return mul( add( a, b ), 0.5 ); }
 
 function atom(pos, type, state) {
     return { p:pos, type: type, state: state };
 }
 
-var radius = 1.0;
-var target_bond_length = radius*3;
-var scale = 20;
+var target_bond_length = 1;
+var radius = target_bond_length / 3.0;
+var scale = 60;
 var offset = p2(200, 200);
-var atoms = [atom(p2(0,0), 'a', 2), atom(p2(target_bond_length,0), 'b', 3)];
-var bonds = [[0,1]]; // pairs of atom indices
+var atoms = [];
+var bonds = [];
 
 
 function getMousePos(canvas, evt) {
@@ -61,52 +55,51 @@ function get_connection_force_on_a( a, b ) {
     var ab2 = len2( x );
     var ab = Math.sqrt( ab2 );
     var k = 0.3;
-    var d = target_edge_length;
-    return mul( x, k * ( d - ab ) / ab );
-}
-
-// too close = weak repulsion
-function get_weak_repulsion_force_on_a( a, b ) {
-    var x = sub( a, b );
-    var ab2 = len2( x );
-    var d = 8 * target_edge_length;
-    if( ab2 < d*d ) {
-        var k = 0.001;
-        var ab = Math.sqrt( ab2 );
-        return mul( x, k * ( d - ab ) / ab );
-    }
-    return p3(0,0,0);
+    var d = target_bond_length;
+    var ret = mul( x, k * ( d - ab ) / ab );
+    return ret;
 }
 
 // move the verts a little in the direction of sum of the forces acting on them
 function relax() {
-    // damp the speed
-    for( var a = 0; a < verts.length; ++a )
-        vel[a] = mul( vel[a], 0.97 );
+    var forces = [];
+    for(var i = 0; i < atoms.length; i++) {
+        forces.push( p2(0,0) );
+    }
     // add a spring force along edges
-    for( var i = 0; i < edges.length; ++i ) {
-        a = edges[i][0];
-        b = edges[i][1];
+    bonds.forEach( (iA, iB) => {
+        var a = atoms[iA];
+        var b = atoms[iB];
         // add the spring forces from this edge
-        var m = get_connection_force_on_a( verts[a], verts[b] );
-        vel[a] = add( vel[a], m );
-        vel[b] = sub( vel[b], m );
-    }
+        var m = get_connection_force_on_a( a.p, b.p );
+        forces[iA] = add( forces[iA], m );
+        forces[iB] = sub( forces[iB], m );
+    });
     // apply the movement
-    var max_speed = 0;
-    for( var a = 0; a < verts.length; ++a )
-    {
-        var speed = Math.sqrt( len2( vel[a] ) );
-        if( speed > 0.2 )
-            vel[a] = mul( vel[a], 0.2 / speed );
-        verts[a] = add( verts[a], vel[a] );
-        max_speed = Math.max( speed, max_speed );
+    for(var i = 0; i < atoms.length; i++) {
+        atoms[i].p = add( atoms[i].p, forces[i] );
     }
+}
+
+function addAtom( pos, type, state ) {
+    atoms.push( atom( pos, type, state ) );
+    return atoms.length - 1;
+}
+
+function addBond( iA, iB ) {
+    bonds.push( (iA, iB ) );
 }
 
 function init() {
     canvas = document.getElementById('canvas');
     ctx = canvas.getContext('2d');
+
+    const iA = addAtom( p2(0, 0), 'a', 2 );
+    const iB = addAtom( p2(1, 0), 'b', 3 );
+    const iC = addAtom( p2(1, 1), 'c', 5 );
+    addBond( iA, iB );
+    addBond( iB, iC );
+    addBond( iC, iA );
 
     redraw();
 
@@ -122,15 +115,34 @@ function init() {
 }
 
 function redraw() {
+    // clear screen
+    var rect = canvas.getBoundingClientRect();
+    ctx.fillStyle = 'white';
+    ctx.fillRect( rect.left, rect.top, rect.width, rect.height );
+
+    // draw bonds
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    bonds.forEach( (a, b) => {
+        ctx.moveTo( atoms[a].p.x * scale + offset.x, atoms[a].p.y * scale + offset.y );
+        ctx.lineTo( atoms[b].p.x * scale + offset.x, atoms[b].p.y * scale + offset.y );
+    });
+    ctx.stroke();
+
     // draw atoms
+    ctx.strokeStyle = 'black';
+    ctx.fillStyle = 'white';
+    ctx.lineWidth = 3;
     atoms.forEach( atom => drawAtom(atom) );
+
+    // TODO: label
 }
 
 function drawAtom(atom) {
-    ctx.strokeStyle = 'rgb(0,0,0)';
-    ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc( atom.p.x * scale + offset.x, atom.p.y * scale + offset.x, radius * scale, 0, Math.PI * 2 );
+    ctx.fill();
     ctx.stroke();
 }
 
