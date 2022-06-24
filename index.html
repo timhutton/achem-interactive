@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script>
+
+function p3( x, y, z ) { return { x:x, y:y, z:z }; }
+function p2( x, y ) { return { x:x, y:y }; }
+function origin() { return p3(0,0,0); }
+function xaxis() { return p3(1,0,0); }
+function yaxis() { return p3(0,1,0); }
+function zaxis() { return p3(0,0,0); }
+function add( a, b ) { return p3( a.x + b.x, a.y + b.y, a.z + b.z ); }
+function sub( a, b ) { return p3( a.x - b.x, a.y - b.y, a.z - b.z ); }
+function mul( a, f ) { return p3( a.x * f, a.y * f, a.z * f ); }
+function dot( a, b ) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+function len2( a ) { return dot(a,a); }
+function dist( a, b ) { return Math.sqrt( len2( sub( a, b ) ) ); }
+function assign( a, b ) { a.x = b.x; a.y = b.y; a.z = b.z; }
+function normalize( a ) { return mul( a, 1 / Math.sqrt( len2( a ) ) ); }
+function cross( a, b ) { return p3( a.y * b.z - a.z * b.y, a.z*b.x - a.x * b.z, a.x * b.y - a.y * b.x ); }
+function mid( a, b ) { return mul( add( a, b ), 0.5 ); }
+
+function atom(pos, type, state) {
+    return { p:pos, type: type, state: state };
+}
+
+var radius = 1.0;
+var target_bond_length = radius*3;
+var scale = 20;
+var offset = p2(200, 200);
+var atoms = [atom(p2(0,0), 'a', 2), atom(p2(target_bond_length,0), 'b', 3)];
+var bonds = [[0,1]]; // pairs of atom indices
+
+
+function getMousePos(canvas, evt) {
+    var rect = canvas.getBoundingClientRect();
+    return p2( evt.clientX - rect.left, evt.clientY - rect.top );
+}
+
+function onMouseMove( evt ) {
+    var pos = getMousePos( canvas, evt );
+}
+
+function onMouseDown( evt ) {
+    var pos = getMousePos( canvas, evt );
+}
+
+function onMouseUp( evt ) {
+    redraw();
+}
+
+function pointInRect( p, rect ) {
+    return p.x > rect.x && p.x < ( rect.x + rect.width ) &&
+           p.y > rect.y && p.y < ( rect.y + rect.height );
+}
+
+// too close = repulsion, too far = attraction
+function get_connection_force_on_a( a, b ) {
+    var x = sub( a, b );
+    var ab2 = len2( x );
+    var ab = Math.sqrt( ab2 );
+    var k = 0.3;
+    var d = target_edge_length;
+    return mul( x, k * ( d - ab ) / ab );
+}
+
+// too close = weak repulsion
+function get_weak_repulsion_force_on_a( a, b ) {
+    var x = sub( a, b );
+    var ab2 = len2( x );
+    var d = 8 * target_edge_length;
+    if( ab2 < d*d ) {
+        var k = 0.001;
+        var ab = Math.sqrt( ab2 );
+        return mul( x, k * ( d - ab ) / ab );
+    }
+    return p3(0,0,0);
+}
+
+// move the verts a little in the direction of sum of the forces acting on them
+function relax() {
+    // damp the speed
+    for( var a = 0; a < verts.length; ++a )
+        vel[a] = mul( vel[a], 0.97 );
+    // add a spring force along edges
+    for( var i = 0; i < edges.length; ++i ) {
+        a = edges[i][0];
+        b = edges[i][1];
+        // add the spring forces from this edge
+        var m = get_connection_force_on_a( verts[a], verts[b] );
+        vel[a] = add( vel[a], m );
+        vel[b] = sub( vel[b], m );
+    }
+    // apply the movement
+    var max_speed = 0;
+    for( var a = 0; a < verts.length; ++a )
+    {
+        var speed = Math.sqrt( len2( vel[a] ) );
+        if( speed > 0.2 )
+            vel[a] = mul( vel[a], 0.2 / speed );
+        verts[a] = add( verts[a], vel[a] );
+        max_speed = Math.max( speed, max_speed );
+    }
+}
+
+function init() {
+    canvas = document.getElementById('canvas');
+    ctx = canvas.getContext('2d');
+
+    redraw();
+
+    canvas.addEventListener( 'mousemove', onMouseMove, false );
+    canvas.addEventListener( 'touchmove', onMouseMove, false );
+    canvas.addEventListener( 'touchstart', onMouseDown, false );
+    canvas.addEventListener( 'mousedown',  onMouseDown, false );
+    canvas.addEventListener( 'touchend', onMouseUp, false );
+    canvas.addEventListener( 'mouseup',  onMouseUp, false );
+    canvas.addEventListener( 'mouseout',  onMouseUp, false );
+
+    animate();
+}
+
+function redraw() {
+    // draw atoms
+    atoms.forEach( atom => drawAtom(atom) );
+}
+
+function drawAtom(atom) {
+    ctx.strokeStyle = 'rgb(0,0,0)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc( atom.p.x * scale + offset.x, atom.p.y * scale + offset.x, radius * scale, 0, Math.PI * 2 );
+    ctx.stroke();
+}
+
+function animate() {
+    relax();
+    redraw();
+    requestAnimationFrame( animate );
+}
+
+window.onload = init;
+</script>
+
+<noscript>
+<p>For full functionality of this site it is necessary to enable JavaScript.
+Here are the <a href="http://www.enable-javascript.com/" target="_blank">
+instructions how to enable JavaScript in your web browser</a>.
+</p></noscript>
+
+</head>
+
+<body>
+
+<canvas id="canvas" width="1000" height="600">(Canvas drawing not supported by your browser.)</canvas>
+
+</html>
