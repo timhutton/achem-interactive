@@ -10,13 +10,19 @@ function sub( a, b ) { return p2( a.x - b.x, a.y - b.y ); }
 function mul( a, f ) { return p2( a.x * f, a.y * f ); }
 function dot( a, b ) { return a.x * b.x + a.y * b.y; }
 function len2( a ) { return dot(a,a); }
-function dist( a, b ) { return Math.sqrt( len2( sub( a, b ) ) ); }
+function len( a ) { return Math.sqrt(len2(a)); }
+function dist( a, b ) { return len( sub( a, b ) ); }
 function assign( a, b ) { a.x = b.x; a.y = b.y; }
-function normalize( a ) { return mul( a, 1 / Math.sqrt( len2( a ) ) ); }
+function normalize( a ) { return mul( a, 1 / len( a ) ); }
 function mid( a, b ) { return mul( add( a, b ), 0.5 ); }
 
 function atom(pos, type, state) {
-    return { p:pos, type: type, state: state };
+    return { p: pos, type: type, state: state };
+}
+
+function reaction(a_type, a_pre, bonded_pre, b_type, b_pre, a_post, bonded_post, b_post) {
+    return { a_type: a_type, a_pre: a_pre, bonded_pre: bonded_pre, b_type: b_type, b_pre: b_pre,
+             a_post: a_post, bonded_post: bonded_post, b_post: b_post };
 }
 
 function getMousePos(canvas, evt) {
@@ -58,8 +64,7 @@ function onMouseUp( evt ) {
 // too close = repulsion, too far = attraction
 function get_connection_force_on_a( a, b ) {
     var x = sub( a, b );
-    var ab2 = len2( x );
-    var ab = Math.sqrt( ab2 );
+    var ab = len( x );
     var k = 0.15;
     var d = target_bond_length;
     var ret = mul( x, k * ( d - ab ) / ab );
@@ -68,8 +73,7 @@ function get_connection_force_on_a( a, b ) {
 
 function get_collision_force_on_a( a, b ) {
     var x = sub( a, b );
-    var ab2 = len2( x );
-    var ab = Math.sqrt( ab2 );
+    var ab = len( x );
     var k = 0.1;
     var d = radius * 2.6;
     if( ab > d ) { return p2(0,0); } // no force if atoms aren't overlapping
@@ -84,7 +88,8 @@ function relax() {
         forces.push( p2(0,0) );
     }
     // add a spring force along edges
-    bonds.forEach( (iA, iB) => {
+    bonds.forEach( bond => {
+        const [iA, iB] = bond;
         var a = atoms[iA];
         var b = atoms[iB];
         // add the spring forces from this edge
@@ -103,9 +108,13 @@ function relax() {
         }
     }
     // apply the movement
+    var total_movement = 0;
     for(var i = 0; i < atoms.length; i++) {
+        total_movement += len( forces[i] );
         atoms[i].p = add( atoms[i].p, forces[i] );
     }
+    const is_relaxed = total_movement < 0.001;
+    return is_relaxed;
 }
 
 function addAtom( pos, type, state ) {
@@ -114,7 +123,29 @@ function addAtom( pos, type, state ) {
 }
 
 function addBond( iA, iB ) {
-    bonds.push( (iA, iB ) );
+    bonds.push( [iA, iB] );
+}
+
+function unbond( iA, iB ) {
+    for(var i = 0; i < bonds.length; i++) {
+        const bond = bonds[i];
+        if( ( bond[0] == iA && bond[1] == iB ) || ( bond[1] == iA && bond[0] == iB ) ) {
+            bonds.splice( i, 1 );
+            return;
+        }
+    }
+    throw 'unbond found no such bond';
+}
+
+function hasBond( iA, iB ) {
+    for(var i = 0; i < bonds.length; i++) {
+        const bond = bonds[i];
+        if( bond[0] == iA && bond[1] == iB )
+            return true;
+        if( bond[1] == iA && bond[0] == iB )
+            return true;
+    }
+    return false;
 }
 
 function init() {
@@ -127,6 +158,10 @@ function init() {
     offset = p2(200, 200);
     atoms = [];
     bonds = [];
+    reactions = [
+        reaction('a', 2, false, 'e', 0, 7, true, 38 ),
+        reaction('c', 5, true, 'd', 4, 8, false, 9 )
+    ];
 
     isDragging = false;
 
@@ -143,8 +178,6 @@ function init() {
     addBond( iE, iF );
     addBond( iF, iA );
 
-    redraw();
-
     canvas.addEventListener( 'mousemove', onMouseMove, false );
     canvas.addEventListener( 'touchmove', onMouseMove, false );
     canvas.addEventListener( 'touchstart', onMouseDown, false );
@@ -153,7 +186,39 @@ function init() {
     canvas.addEventListener( 'mouseup',  onMouseUp, false );
     canvas.addEventListener( 'mouseout',  onMouseUp, false );
 
+    redraw();
     animate();
+}
+
+function doChemistry() {
+    for(var i = 0; i < reactions.length; i++) {
+        const r = reactions[i];
+        for(var iA = 0; iA < atoms.length; iA++) {
+            for(var iB = 0; iB < atoms.length; iB++) {
+                if( iA == iB ) { continue; }
+                var a = atoms[iA];
+                var b = atoms[iB];
+                // does this reaction apply?
+                if( r.a_type != a.type || r.a_pre != a.state || r.b_type != b.type || r.b_pre != b.state ) {
+                    continue;
+                }
+                const bonded_pre = hasBond( iA, iB );
+                if( r.bonded_pre && !bonded_pre ) { continue; }
+                if( !r.bonded_pre && bonded_pre ) { continue; }
+                // apply the reaction
+                console.log('applying', r);
+                a.state = r.a_post;
+                b.state = r.b_post;
+                if( bonded_pre && !r.bonded_post ) {
+                    unbond( iA, iB );
+                }
+                if( !bonded_pre && r.bonded_post ) {
+                    addBond( iA, iB );
+                }
+                return;
+            }
+        }
+    }
 }
 
 function redraw() {
@@ -166,7 +231,8 @@ function redraw() {
     ctx.strokeStyle = 'black';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    bonds.forEach( (a, b) => {
+    bonds.forEach( bond => {
+        const [a, b] = bond;
         ctx.moveTo( atoms[a].p.x * scale + offset.x, atoms[a].p.y * scale + offset.y );
         ctx.lineTo( atoms[b].p.x * scale + offset.x, atoms[b].p.y * scale + offset.y );
     });
@@ -195,7 +261,10 @@ function drawAtom(atom) {
 }
 
 function animate() {
-    relax();
+    const is_relaxed = relax();
+    if( is_relaxed ) {
+        doChemistry();
+    }
     redraw();
     requestAnimationFrame( animate );
 }
