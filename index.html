@@ -30,21 +30,21 @@ function getMousePos(canvas, evt) {
     return p2( evt.clientX - rect.left, evt.clientY - rect.top );
 }
 
-function getMouseArenaPos(canvas, evt) {
-    var pos = getMousePos(canvas, evt);
+function fromScreen( pos ) {
     return mul( sub( pos, offset ), 1.0 / scale );
 }
 
-function onMouseMove( evt ) {
-    if( isDragging ) {
-        var pos = getMouseArenaPos( canvas, evt );
-        atoms[atomBeingDragged].p = add( pos, dragOffset );
-        redraw();
-    }
+function onMouseDown( evt ) {
+    var pos = getMousePos( canvas, evt );
+    onDown( pos );
 }
 
-function onMouseDown( evt ) {
-    var pos = getMouseArenaPos( canvas, evt );
+function onTouchStart( evt ) {
+    onDown( fixTouch( evt.changedTouches[0] ) );
+}
+
+function onDown( event_pos ) {
+    const pos = fromScreen( event_pos );
     for(var i = 0; i < atoms.length; i++) {
         var atom = atoms[i];
         if( dist(atom.p, pos ) < radius ) {
@@ -56,16 +56,57 @@ function onMouseDown( evt ) {
     }
 }
 
-function onMouseUp( evt ) {
+function onMouseMove( evt ) {
+    const pos = getMousePos( canvas, evt );
+    onMove( pos );
+}
+
+function onTouchMove( evt ) {
+    onMove( fixTouch( evt.changedTouches[0] ) );
+}
+
+function onMove( event_pos ) {
+    if( isDragging ) {
+        const pos = fromScreen( event_pos );
+        atoms[atomBeingDragged].p = add( pos, dragOffset );
+        redraw();
+    }
+}
+
+function onUp( evt ) {
     isDragging = false;
     redraw();
+}
+
+// thanks to: http://stackoverflow.com/a/12714084/126823
+function fixTouch (touch) {
+    var winPageX = window.pageXOffset,
+        winPageY = window.pageYOffset,
+        x = touch.clientX,
+        y = touch.clientY;
+
+    if (touch.pageY === 0 && Math.floor(y) > Math.floor(touch.pageY) ||
+        touch.pageX === 0 && Math.floor(x) > Math.floor(touch.pageX)) {
+        // iOS4 clientX/clientY have the value that should have been
+        // in pageX/pageY. While pageX/page/ have the value 0
+        x = x - winPageX;
+        y = y - winPageY;
+    } else if (y < (touch.pageY - winPageY) || x < (touch.pageX - winPageX) ) {
+        // Some Android browsers have totally bogus values for clientX/Y
+        // when scrolling/zooming a page. Detectable since clientX/clientY
+        // should never be smaller than pageX/pageY minus page scroll
+        x = touch.pageX - winPageX;
+        y = touch.pageY - winPageY;
+    }
+    var rect = canvas.getBoundingClientRect();
+    return p2( x - rect.left, y - rect.top );
 }
 
 // too close = repulsion, too far = attraction
 function get_connection_force_on_a( a, b ) {
     var x = sub( a, b );
     var ab = len( x );
-    var k = 0.15;
+    var k = 0.3;
     var d = target_bond_length;
     var ret = mul( x, k * ( d - ab ) / ab );
     return ret;
@@ -74,7 +115,7 @@ function get_connection_force_on_a( a, b ) {
 function get_collision_force_on_a( a, b ) {
     var x = sub( a, b );
     var ab = len( x );
-    var k = 0.1;
+    var k = 0.3;
     var d = radius * 2.6;
     if( ab > d ) { return p2(0,0); } // no force if atoms aren't overlapping
     var ret = mul( x, k * ( d - ab ) / ab );
@@ -148,16 +189,22 @@ function hasBond( iA, iB ) {
     return false;
 }
 
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    scale = Math.min( canvas.width, canvas.height ) / 5;
+    offset = p2( canvas.width / 2, canvas.height / 2 );
+    console.log('scale',scale);
+    console.log('offset',offset);
+}
+
 function init() {
     canvas = document.getElementById('canvas');
-    canvas.width = document.body.clientWidth;
-    canvas.height = document.body.clientHeight;
+    resize();
     ctx = canvas.getContext('2d');
 
     target_bond_length = 1;
     radius = target_bond_length / 3.0;
-    scale = 60;
-    offset = p2(200, 200);
     atoms = [];
     bonds = [];
     reactions = [
@@ -167,12 +214,12 @@ function init() {
 
     isDragging = false;
 
-    const iA = addAtom( p2(0, 0), 'a', 2 );
+    const iA = addAtom( p2(-1, 0), 'a', 2 );
     const iB = addAtom( p2(0.5, 0), 'b', 3 );
-    const iC = addAtom( p2(1, 0), 'c', 5 );
-    const iD = addAtom( p2(3, 0.6), 'd', 4 );
-    const iE = addAtom( p2(0.5, 0.6), 'e', 0 );
-    const iF = addAtom( p2(0, 0.5), 'f', 6 );
+    const iC = addAtom( p2(0, 0), 'c', 5 );
+    const iD = addAtom( p2(2, 0.6), 'd', 4 );
+    const iE = addAtom( p2(-0.5, 0.6), 'e', 0 );
+    const iF = addAtom( p2(-1, 0.5), 'f', 6 );
     addBond( iA, iB );
     addBond( iB, iC );
     addBond( iC, iD );
@@ -181,12 +228,12 @@ function init() {
     addBond( iF, iA );
 
     canvas.addEventListener( 'mousemove', onMouseMove, false );
-    canvas.addEventListener( 'touchmove', onMouseMove, false );
-    canvas.addEventListener( 'touchstart', onMouseDown, false );
+    canvas.addEventListener( 'touchmove', onTouchMove, false );
+    canvas.addEventListener( 'touchstart', onTouchStart, false );
     canvas.addEventListener( 'mousedown',  onMouseDown, false );
-    canvas.addEventListener( 'touchend', onMouseUp, false );
-    canvas.addEventListener( 'mouseup',  onMouseUp, false );
-    canvas.addEventListener( 'mouseout',  onMouseUp, false );
+    canvas.addEventListener( 'touchend', onUp, false );
+    canvas.addEventListener( 'mouseup',  onUp, false );
+    canvas.addEventListener( 'mouseout',  onUp, false );
 
     redraw();
     animate();
@@ -201,6 +248,7 @@ function doChemistry() {
                 var a = atoms[iA];
                 var b = atoms[iB];
                 // does this reaction apply?
+                // TODO: are atoms close enough?
                 if( r.a_type != a.type || r.a_pre != a.state || r.b_type != b.type || r.b_pre != b.state ) {
                     continue;
                 }
@@ -226,13 +274,14 @@ function doChemistry() {
 function redraw() {
     // clear screen
     var rect = canvas.getBoundingClientRect();
-    ctx.fillStyle = 'white';
+    ctx.fillStyle = 'lightblue';
     ctx.fillRect( rect.left, rect.top, rect.width, rect.height );
 
     // draw bonds
     ctx.strokeStyle = 'black';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = scale / 20;
     ctx.beginPath();
+
     bonds.forEach( bond => {
         const [a, b] = bond;
         ctx.moveTo( atoms[a].p.x * scale + offset.x, atoms[a].p.y * scale + offset.y );
@@ -247,19 +296,19 @@ function redraw() {
 function drawAtom(atom) {
     ctx.strokeStyle = 'black';
     ctx.fillStyle = 'white';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = scale / 20;
     ctx.beginPath();
-    ctx.arc( atom.p.x * scale + offset.x, atom.p.y * scale + offset.x, radius * scale, 0, Math.PI * 2 );
+    ctx.arc( atom.p.x * scale + offset.x, atom.p.y * scale + offset.y, radius * scale, 0, Math.PI * 2 );
     ctx.fill();
     ctx.stroke();
 
-    ctx.lineWidth = 4;
+    ctx.lineWidth = scale / 15;
     ctx.strokeStyle = 'black';
     ctx.fillStyle = 'black';
-    ctx.font = '20px Arial';
+    ctx.font = (scale/3)+'px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(atom.type + atom.state, atom.p.x * scale + offset.x, atom.p.y * scale + offset.x);
+    ctx.fillText(atom.type + atom.state, atom.p.x * scale + offset.x, atom.p.y * scale + offset.y);
 }
 
 function animate() {
@@ -272,6 +321,7 @@ function animate() {
 }
 
 window.onload = init;
+window.onresize = resize;
 </script>
 
 <noscript>
@@ -283,6 +333,8 @@ instructions how to enable JavaScript in your web browser</a>.
 <style>
 html, body {
     overflow: hidden;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 </style>
 
@@ -290,6 +342,6 @@ html, body {
 
 <body>
 
-<canvas id="canvas" width="1000" height="600" style="touch-action: none;">(Canvas drawing not supported by your browser.)</canvas>
+<canvas id="canvas" width="1000" height="600">(Canvas drawing not supported by your browser.)</canvas>
 
 </html>
