@@ -150,6 +150,8 @@ function hasBond( iA, iB ) {
 
 function init() {
     canvas = document.getElementById('canvas');
+    canvas.width = document.body.clientWidth;
+    canvas.height = document.body.clientHeight;
     ctx = canvas.getContext('2d');
 
     target_bond_length = 1;
@@ -278,10 +280,16 @@ Here are the <a href="http://www.enable-javascript.com/" target="_blank">
 instructions how to enable JavaScript in your web browser</a>.
 </p></noscript>
 
+<style>
+html, body {
+    overflow: hidden;
+}
+</style>
+
 </head>
 
 <body>
 
-<canvas id="canvas" width="1000" height="600">(Canvas drawing not supported by your browser.)</canvas>
+<canvas id="canvas" width="1000" height="600" style="touch-action: none;">(Canvas drawing not supported by your browser.)</canvas>
 
 </html>
