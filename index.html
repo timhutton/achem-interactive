@@ -192,7 +192,7 @@ function hasBond( iA, iB ) {
 function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    scale = Math.min( canvas.width, canvas.height ) / 7;
+    scale = Math.min( canvas.width, canvas.height ) / 10;
     offset = p2( canvas.width / 2, canvas.height / 2 );
 }
 
@@ -212,33 +212,32 @@ function init() {
 
     isDragging = false;
 
-    const iA = addAtom( p2(-1, 0), 'a', 2 );
-    const iB = addAtom( p2(0.5, 0), 'b', 3 );
-    const iC = addAtom( p2(0, 0), 'c', 5 );
-    const iD = addAtom( p2(2, 0.6), 'd', 4 );
-    const iE = addAtom( p2(-0.5, 0.6), 'e', 0 );
-    const iF = addAtom( p2(-1, 0.5), 'f', 6 );
-    addBond( iA, iB );
-    addBond( iB, iC );
-    addBond( iC, iD );
-    addBond( iD, iE );
-    addBond( iE, iF );
-    addBond( iF, iA );
-
     // make a loop
     var loop = [];
-    const n = 12;
+    const n = 18;
     const circumference = n * target_bond_length;
     const r = circumference / ( 2 * Math.PI );
     for(var i = 0; i < n; i++) {
         const theta = i * 2 * Math.PI / n;
-        const p = p2( r * Math.cos( theta ), r * Math.sin( theta ) );
+        const p = p2( r * Math.sin( theta ), r * Math.cos( theta ) );
         loop.push( addAtom( p, 'a', 1 ) );
         if( i > 0 ) {
             addBond( loop[i], loop[i-1] );
         }
     }
     addBond( loop[0], loop[n-1] );
+
+    // make a strand of DNA
+    var spec = 'eabcf';
+    var dna = [];
+    for(var i = 0; i < spec.length; i++) {
+        dna.push( addAtom( p2( 0, (i + 1) * target_bond_length - r ), spec[i], 2 ) );
+        if( i > 0 ) {
+            addBond( dna[i], dna[i-1] );
+        }
+    }
+    addBond( dna[0], loop[n / 2] );
+    addBond( dna[dna.length - 1], loop[0] );
 
     canvas.addEventListener( 'mousemove', onMouseMove, false );
     canvas.addEventListener( 'touchmove', onTouchMove, false );
