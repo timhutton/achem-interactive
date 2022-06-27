@@ -115,8 +115,8 @@ function get_connection_force_on_a( a, b ) {
 function get_collision_force_on_a( a, b ) {
     var x = sub( a, b );
     var ab = len( x );
-    var k = 0.3;
-    var d = radius * 2.6;
+    var k = 0.1;
+    var d = radius * 3;
     if( ab > d ) { return p2(0,0); } // no force if atoms aren't overlapping
     var ret = mul( x, k * ( d - ab ) / ab );
     return ret;
@@ -154,7 +154,7 @@ function relax() {
         total_movement += len( forces[i] );
         atoms[i].p = add( atoms[i].p, forces[i] );
     }
-    const is_relaxed = total_movement < 0.001;
+    const is_relaxed = total_movement < 0.01;
     return is_relaxed;
 }
 
@@ -206,38 +206,91 @@ function init() {
     atoms = [];
     bonds = [];
     reactions = [
-        reaction('a', 2, false, 'e', 0, 7, true, 38 ),
-        reaction('c', 5, true, 'd', 4, 8, false, 9 )
+        // prepare for genome duplication
+        reaction('a',40,true,'e',1,10,true,5,false),
+        reaction('a',10,false,'e',6,40,true,3,false),
+        reaction('e',6,true,'e',3,2,true,3,false),
+
+        // genome duplication
+        reaction('x',2,true,'y',1,7,true,4,false),
+        reaction('x',4,false,'y',3,5,true,7,false),
+        reaction('x',5,false,'x',0,6,true,6,false),
+        reaction('x',6,false,'y',7,3,true,4,false),
+        reaction('x',6,true,'y',4,1,false,2,false),
+        reaction('x',7,true,'y',1,2,true,2,false),
+
+        // prepare for genome splitting
+        reaction('f',2,true,'a',40,9,true,11,false),
+        reaction('a',11,false,'f',3,11,true,9,false),
+
+        // genome splitting
+        reaction('x',2,true,'y',8,9,true,1,false),
+        reaction('x',9,true,'y',9,8,false,8,false),
+
+        // start the cell division
+        reaction('a',11,true,'a',39,11,true,12,false),
+        reaction('f',1,false,'a',12,13,true,40,false),
+
+        // the pulling sequence
+        reaction('x',13,true,'y',1,14,true,15,false),
+        reaction('a',11,false,'x',15,11,true,16,false),
+        reaction('x',14,true,'y',16,29,true,16,false), // state 29 borrowed from later
+        reaction('x',29,true,'a',11,17,false,11,false),
+        reaction('x',17,true,'y',16,17,true,13,false),
+        // plus
+        reaction('x',13,true,'e',8,14,true,15,false),
+
+        // finish the cell division
+        reaction('e',13,true,'a',40,18,true,19,false),
+        reaction('e',13,true,'a',19,18,true,20,false),
+        reaction('a',20,false,'a',11,21,true,22,false),
+        reaction('e',18,true,'a',22,35,false,23,false), // 35 borrowed from later
+        reaction('e',18,true,'a',21,35,false,24,false),
+        reaction('a',23,true,'a',40,25,true,26,false),
+        reaction('a',25,true,'a',40,27,true,26,false),
+        reaction('a',24,false,'a',26,28,true,29,false),
+        reaction('a',29,true,'a',27,40,false,30,false),
+        reaction('a',30,true,'a',26,31,true,40,false),
+        reaction('a',28,true,'a',39,32,true,33,false),
+        reaction('a',32,true,'a',39,34,true,33,false),
+        reaction('a',33,false,'a',31,39,true,36,false),
+        reaction('a',34,true,'a',39,35,false,39,false),
+        reaction('a',35,true,'a',33,37,true,39,false),
+        reaction('a',37,true,'a',36,40,false,40,false),
     ];
 
     isDragging = false;
 
     // make a loop
     var loop = [];
-    const n = 18;
+    const n = 24;
     const circumference = n * target_bond_length;
     const r = circumference / ( 2 * Math.PI );
     for(var i = 0; i < n; i++) {
         const theta = i * 2 * Math.PI / n;
-        const p = p2( r * Math.sin( theta ), r * Math.cos( theta ) );
-        loop.push( addAtom( p, 'a', 1 ) );
+        const p = p2( r * Math.sin( theta ), -r * Math.cos( theta ) );
+        loop.push( addAtom( p, 'a', 39 ) );
         if( i > 0 ) {
             addBond( loop[i], loop[i-1] );
         }
     }
     addBond( loop[0], loop[n-1] );
+    atoms[ loop[0] ].state = 40;
+    atoms[ loop[n/2] ].state = 40;
 
     // make a strand of DNA
     var spec = 'eabcf';
     var dna = [];
     for(var i = 0; i < spec.length; i++) {
-        dna.push( addAtom( p2( 0, (i + 1) * target_bond_length - r ), spec[i], 2 ) );
+        const p = p2( 0, (i + 1) * target_bond_length - r );
+        dna.push( addAtom( p, spec[i], 1 ) );
+        addAtom( p2( p.x + target_bond_length, p.y ), spec[i], 0 ); // food
         if( i > 0 ) {
             addBond( dna[i], dna[i-1] );
         }
     }
-    addBond( dna[0], loop[n / 2] );
-    addBond( dna[dna.length - 1], loop[0] );
+    addBond( dna[0], loop[0] );
+    addBond( dna[dna.length - 1], loop[n / 2] );
 
     canvas.addEventListener( 'mousemove', onMouseMove, false );
     canvas.addEventListener( 'touchmove', onTouchMove, false );
@@ -255,26 +308,42 @@ function doChemistry() {
     for(var i = 0; i < reactions.length; i++) {
         const r = reactions[i];
         for(var iA = 0; iA < atoms.length; iA++) {
+            // find the closest atom that matches the reaction
+            var closest_b_candidate = -1;
+            var closest_b_candidate_distance = 1e6;
             for(var iB = 0; iB < atoms.length; iB++) {
                 if( iA == iB ) { continue; }
                 var a = atoms[iA];
                 var b = atoms[iB];
                 // does this reaction apply?
-                // TODO: are atoms close enough?
-                if( r.a_type != a.type || r.a_pre != a.state || r.b_type != b.type || r.b_pre != b.state ) {
+                if( r.a_type != 'x' && r.a_type != 'y' && r.a_type != a.type ) { continue; }
+                if( r.b_type != 'x' && r.b_type != 'y' && r.b_type != b.type ) { continue; }
+                if( r.a_type == 'x' && r.b_type == 'x' && a.type != b.type ) { continue; }
+                if( r.a_type == 'y' && r.b_type == 'y' && a.type != b.type ) { continue; }
+                if( r.a_pre != a.state || r.b_pre != b.state ) {
                     continue;
                 }
+                const d = dist( a.p, b.p );
+                if( !r.bonded_pre && r.bonded_post && d > target_bond_length * 1.7 ) { continue; }
                 const bonded_pre = hasBond( iA, iB );
                 if( r.bonded_pre && !bonded_pre ) { continue; }
                 if( !r.bonded_pre && bonded_pre ) { continue; }
+                if( d < closest_b_candidate_distance ) {
+                    closest_b_candidate_distance = d;
+                    closest_b_candidate = iB;
+                }
+            }
+            if( closest_b_candidate >= 0 ) {
+                const iB = closest_b_candidate;
                 // apply the reaction
+                var b = atoms[iB];
                 console.log('applying', r);
                 a.state = r.a_post;
                 b.state = r.b_post;
-                if( bonded_pre && !r.bonded_post ) {
+                if( r.bonded_pre && !r.bonded_post ) {
                     unbond( iA, iB );
                 }
-                if( !bonded_pre && r.bonded_post ) {
+                if( !r.bonded_pre && r.bonded_post ) {
                     addBond( iA, iB );
                 }
                 return;
