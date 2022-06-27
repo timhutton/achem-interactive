@@ -192,10 +192,8 @@ function hasBond( iA, iB ) {
 function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    scale = Math.min( canvas.width, canvas.height ) / 5;
+    scale = Math.min( canvas.width, canvas.height ) / 7;
     offset = p2( canvas.width / 2, canvas.height / 2 );
-    console.log('scale',scale);
-    console.log('offset',offset);
 }
 
 function init() {
@@ -226,6 +224,21 @@ function init() {
     addBond( iD, iE );
     addBond( iE, iF );
     addBond( iF, iA );
+
+    // make a loop
+    var loop = [];
+    const n = 12;
+    const circumference = n * target_bond_length;
+    const r = circumference / ( 2 * Math.PI );
+    for(var i = 0; i < n; i++) {
+        const theta = i * 2 * Math.PI / n;
+        const p = p2( r * Math.cos( theta ), r * Math.sin( theta ) );
+        loop.push( addAtom( p, 'a', 1 ) );
+        if( i > 0 ) {
+            addBond( loop[i], loop[i-1] );
+        }
+    }
+    addBond( loop[0], loop[n-1] );
 
     canvas.addEventListener( 'mousemove', onMouseMove, false );
     canvas.addEventListener( 'touchmove', onTouchMove, false );
