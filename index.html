@@ -255,7 +255,7 @@ function init_simple_rep() {
     ];
 
     // make a strand of DNA
-    var spec = 'abcdefgh';
+    var spec = 'abcddcadb';
     var dna = [];
     for(var i = 0; i < spec.length; i++) {
         const p = p2( 0, (i - spec.length/2) * target_bond_length );
@@ -266,7 +266,7 @@ function init_simple_rep() {
         }
         else {
             dna.push( addAtom( p, spec[i], 1 ) );
-            addAtom( p2( p.x + 1.2 * target_bond_length, p.y + 0.3 * target_bond_length ), spec[i], 0 ); // food
+            addAtom( p2( p.x + 1.4 * target_bond_length, p.y + 0.3 * target_bond_length ), spec[i], 0 ); // food
             addBond( dna[i], dna[i-1] );
         }
     }
@@ -482,9 +482,10 @@ function redraw() {
 }
 
 function drawAtom(atom, was_involved_in_last_reaction) {
+    const color_dictionary = {'a':'rgb(255,204,204)', 'b':'rgb(204,255,204)', 'c':'rgb(204,204,255)', 'd':'rgb(255,255,204)'};
     ctx.strokeStyle = 'black';
-    ctx.fillStyle = 'white';
-    ctx.lineWidth = was_involved_in_last_reaction ? (scale / 12) : (scale / 20);
+    ctx.fillStyle = color_dictionary[atom.type];
+    ctx.lineWidth = was_involved_in_last_reaction ? (scale / 15) : (scale / 20);
     ctx.beginPath();
     ctx.arc( atom.p.x * scale + offset.x, atom.p.y * scale + offset.y, radius * scale, 0, Math.PI * 2 );
     ctx.fill();
