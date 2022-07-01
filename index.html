@@ -242,14 +242,13 @@ function init_simple_rep() {
     // new scheme to replicate a strand without being ladder-bonded throughout
 
     reactions = [
-        reaction('x',1,false,'x',0,2,true,3,false),
-        reaction('x',4,true,'y',2,9,true,6,false),
-        reaction('x',6,true,'x',3,6,true,7,false),
+        reaction('x',2,true,'y',1,4,true,3,false),
+        reaction('x',3,false,'x',0,6,true,7,false),
         reaction('x',7,false,'y',5,5,true,8,false),
-        reaction('x',9,true,'y',8,4,false,4,false),
-        reaction('x',4,true,'y',6,4,true,4,false),
+        reaction('x',4,true,'y',8,2,false,2,false),
+        reaction('x',2,true,'y',6,2,true,2,false),
 
-        reaction('h',4,true,'h',5,4,false,4,false), // handle the end
+        reaction('h',2,true,'h',5,2,false,2,false), // handle the end
     ];
 
     // make a strand of DNA
@@ -258,7 +257,7 @@ function init_simple_rep() {
     for(var i = 0; i < spec.length; i++) {
         const p = p2( 0, (i - spec.length/2) * target_bond_length );
         if( i == 0 ) {
-            dna.push( addAtom( p, spec[i], 4 ) );
+            dna.push( addAtom( p, spec[i], 2 ) );
             const a = addAtom( p2( p.x + target_bond_length, p.y ), spec[i], 5 );
             addBond( dna[0], a );
         }
