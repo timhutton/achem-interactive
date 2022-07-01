@@ -205,6 +205,24 @@ function init() {
     radius = target_bond_length / 3.0;
     atoms = [];
     bonds = [];
+    reactions = [];
+    isDragging = false;
+
+    init2007paper();
+
+    canvas.addEventListener( 'mousemove', onMouseMove, false );
+    canvas.addEventListener( 'touchmove', onTouchMove, false );
+    canvas.addEventListener( 'touchstart', onTouchStart, false );
+    canvas.addEventListener( 'mousedown',  onMouseDown, false );
+    canvas.addEventListener( 'touchend', onUp, false );
+    canvas.addEventListener( 'mouseup',  onUp, false );
+    canvas.addEventListener( 'mouseout',  onUp, false );
+
+    redraw();
+    animate();
+}
+
+function init2007paper() {
     reactions = [
         // prepare for genome duplication
         reaction('a',40,true,'e',1,10,true,5,false),
@@ -259,7 +277,6 @@ function init() {
         reaction('a',37,true,'a',36,40,false,40,false),
     ];
 
-    isDragging = false;
 
     // make a loop
     var loop = [];
@@ -291,17 +308,6 @@ function init() {
     }
     addBond( dna[0], loop[0] );
     addBond( dna[dna.length - 1], loop[n / 2] );
-
-    canvas.addEventListener( 'mousemove', onMouseMove, false );
-    canvas.addEventListener( 'touchmove', onTouchMove, false );
-    canvas.addEventListener( 'touchstart', onTouchStart, false );
-    canvas.addEventListener( 'mousedown',  onMouseDown, false );
-    canvas.addEventListener( 'touchend', onUp, false );
-    canvas.addEventListener( 'mouseup',  onUp, false );
-    canvas.addEventListener( 'mouseout',  onUp, false );
-
-    redraw();
-    animate();
 }
 
 function doChemistry() {
