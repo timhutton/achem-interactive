@@ -25,6 +25,11 @@ function reaction(a_type, a_pre, bonded_pre, b_type, b_pre, a_post, bonded_post,
              a_post: a_post, bonded_post: bonded_post, b_post: b_post };
 }
 
+function reaction_to_string(r) {
+    return r.a_type + r.a_pre + (r.bonded_pre?"":" + ") + r.b_type + r.b_pre + " -> "
+        + r.a_type + r.a_post + (r.bonded_post?"":" + ") + r.b_type + r.b_post;
+}
+
 function getMousePos(canvas, evt) {
     var rect = canvas.getBoundingClientRect();
     return p2( evt.clientX - rect.left, evt.clientY - rect.top );
@@ -51,7 +56,7 @@ function onDown( event_pos ) {
             isDragging = true;
             dragOffset = sub( atom.p, pos );
             atomBeingDragged = i;
-            break;
+            return;
         }
     }
 }
@@ -76,6 +81,10 @@ function onMove( event_pos ) {
 function onUp( evt ) {
     isDragging = false;
     redraw();
+}
+
+function onNextButton() {
+    max_reactions_to_apply++;
 }
 
 // thanks to: http://stackoverflow.com/a/12714084/126823
@@ -207,8 +216,12 @@ function init() {
     bonds = [];
     reactions = [];
     isDragging = false;
+    n_reactions_applied = 0;
+    max_reactions_to_apply = 0;
 
-    init2007paper();
+    //init_2007paper();
+    init_simple_rep();
+    //init_linear_enzymes();
 
     canvas.addEventListener( 'mousemove', onMouseMove, false );
     canvas.addEventListener( 'touchmove', onTouchMove, false );
@@ -218,11 +231,87 @@ function init() {
     canvas.addEventListener( 'mouseup',  onUp, false );
     canvas.addEventListener( 'mouseout',  onUp, false );
 
+    document.getElementById('reactions_applied').value = '';
+
     redraw();
     animate();
 }
 
-function init2007paper() {
+function init_simple_rep() {
+
+    // new scheme to replicate a strand without being ladder-bonded throughout
+
+    reactions = [
+        reaction('x',1,false,'x',0,2,true,3,false),
+        reaction('x',4,true,'y',2,9,true,6,false),
+        reaction('x',6,true,'x',3,6,true,7,false),
+        reaction('x',7,false,'y',5,5,true,8,false),
+        reaction('x',9,true,'y',8,4,false,4,false),
+        reaction('x',4,true,'y',6,4,true,4,false),
+
+        reaction('h',4,true,'h',5,4,false,4,false), // handle the end
+    ];
+
+    // make a strand of DNA
+    var spec = 'abcdefgh';
+    var dna = [];
+    for(var i = 0; i < spec.length; i++) {
+        const p = p2( 0, (i - spec.length/2) * target_bond_length );
+        if( i == 0 ) {
+            dna.push( addAtom( p, spec[i], 4 ) );
+            const a = addAtom( p2( p.x + target_bond_length, p.y ), spec[i], 5 );
+            addBond( dna[0], a );
+        }
+        else {
+            dna.push( addAtom( p, spec[i], 1 ) );
+            addAtom( p2( p.x + 1.2 * target_bond_length, p.y + 0.3 * target_bond_length ), spec[i], 0 ); // food
+            addBond( dna[i], dna[i-1] );
+        }
+    }
+}
+
+function init_linear_enzymes() {
+
+    reactions = [
+
+    ];
+
+    // make a loop
+    var loop = [];
+    const n = 24;
+    const circumference = n * target_bond_length;
+    const r = circumference / ( 2 * Math.PI );
+    for(var i = 0; i < n; i++) {
+        const theta = i * 2 * Math.PI / n;
+        const p = p2( r * Math.sin( theta ), -r * Math.cos( theta ) );
+        loop.push( addAtom( p, 'e', 90 ) );
+        if( i > 0 ) {
+            addBond( loop[i], loop[i-1] );
+        }
+    }
+    addBond( loop[0], loop[n-1] );
+    atoms[ loop[0] ].state = 91;
+    atoms[ loop[1] ].state = 92;
+    atoms[ loop[n/2] ].state = 91;
+
+    // make a strand of DNA
+    var spec = 'abcfdb';
+    var dna = [];
+    for(var i = 0; i < spec.length; i++) {
+        const p = p2( 0, (i + 1) * target_bond_length - r );
+        dna.push( addAtom( p, spec[i], 1 ) );
+        addAtom( p2( p.x - target_bond_length, p.y ), spec[i], 99 ); // old enzymes
+        addAtom( p2( p.x + target_bond_length, p.y ), spec[i], 0 ); // food
+        if( i > 0 ) {
+            addBond( dna[i], dna[i-1] );
+        }
+    }
+    addBond( dna[0], loop[0] );
+    addBond( dna[0], loop[1] );
+    addBond( dna[dna.length - 1], loop[n / 2] );
+}
+
+function init_2007paper() {
     reactions = [
         // prepare for genome duplication
         reaction('a',40,true,'e',1,10,true,5,false),
@@ -277,7 +366,6 @@ function init2007paper() {
         reaction('a',37,true,'a',36,40,false,40,false),
     ];
 
-
     // make a loop
     var loop = [];
     const n = 24;
@@ -312,7 +400,8 @@ function init2007paper() {
 
 function doChemistry() {
     for(var i = 0; i < reactions.length; i++) {
-        const r = reactions[i];
+        const r = reactions[ i ];
+        //const r = reactions[ Math.floor( Math.random() * reactions.length ) ];
         for(var iA = 0; iA < atoms.length; iA++) {
             // find the closest atom that matches the reaction
             var closest_b_candidate = -1;
@@ -343,7 +432,6 @@ function doChemistry() {
                 const iB = closest_b_candidate;
                 // apply the reaction
                 var b = atoms[iB];
-                console.log('applying', r);
                 a.state = r.a_post;
                 b.state = r.b_post;
                 if( r.bonded_pre && !r.bonded_post ) {
@@ -352,6 +440,11 @@ function doChemistry() {
                 if( !r.bonded_pre && r.bonded_post ) {
                     addBond( iA, iB );
                 }
+                n_reactions_applied++;
+                // show the reaction that was applied
+                const box = document.getElementById('reactions_applied');
+                box.value += reaction_to_string(r) + '\n';
+                box.scrollTop = box.scrollHeight;
                 return;
             }
         }
@@ -400,7 +493,7 @@ function drawAtom(atom) {
 
 function animate() {
     const is_relaxed = relax();
-    if( is_relaxed ) {
+    if( is_relaxed && n_reactions_applied < max_reactions_to_apply ) {
         doChemistry();
     }
     redraw();
@@ -429,6 +522,8 @@ html, body {
 
 <body>
 
-<canvas id="canvas" width="1000" height="600">(Canvas drawing not supported by your browser.)</canvas>
+<canvas id="canvas" width="1000" height="600" style="z-index:-1">(Canvas drawing not supported by your browser.)</canvas>
+<input type="button" style="z-index:1; position:absolute; top:20px; left:20px" value="next reaction" onclick='onNextButton()'/>
+<textarea id="reactions_applied" cols="40" rows="5" style="z-index:1; position:absolute; top:60px; left:20px; width:150px; height:300px" readonly></textarea>
 
 </html>
