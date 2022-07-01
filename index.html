@@ -218,6 +218,8 @@ function init() {
     isDragging = false;
     n_reactions_applied = 0;
     max_reactions_to_apply = 0;
+    last_a = -1;
+    last_b = -1;
 
     //init_2007paper();
     init_simple_rep();
@@ -231,7 +233,7 @@ function init() {
     canvas.addEventListener( 'mouseup',  onUp, false );
     canvas.addEventListener( 'mouseout',  onUp, false );
 
-    document.getElementById('reactions_applied').value = '';
+    document.getElementById('reactions_applied').value = 'Reactions applied:';
 
     redraw();
     animate();
@@ -242,10 +244,11 @@ function init_simple_rep() {
     // new scheme to replicate a strand without being ladder-bonded throughout
 
     reactions = [
+        // replication reactions. 0=food, 1=strand, 2=old strand, 3=ready to pair, 4567=others
         reaction('x',2,true,'y',1,4,true,3,false),
         reaction('x',3,false,'x',0,6,true,7,false),
-        reaction('x',7,false,'y',5,5,true,8,false),
-        reaction('x',4,true,'y',8,2,false,2,false),
+        reaction('x',7,false,'y',5,5,true,7,false),
+        reaction('x',4,true,'y',7,2,false,2,false),
         reaction('x',2,true,'y',6,2,true,2,false),
 
         reaction('h',2,true,'h',5,2,false,2,false), // handle the end
@@ -442,8 +445,11 @@ function doChemistry() {
                 n_reactions_applied++;
                 // show the reaction that was applied
                 const box = document.getElementById('reactions_applied');
-                box.value += reaction_to_string(r) + '\n';
+                box.value += '\n' + reaction_to_string(r);
                 box.scrollTop = box.scrollHeight;
+                // remember which atoms were last reacted, for drawing
+                last_a = iA;
+                last_b = iB;
                 return;
             }
         }
@@ -457,25 +463,28 @@ function redraw() {
     ctx.fillRect( rect.left, rect.top, rect.width, rect.height );
 
     // draw bonds
-    ctx.strokeStyle = 'black';
-    ctx.lineWidth = scale / 20;
-    ctx.beginPath();
-
     bonds.forEach( bond => {
         const [a, b] = bond;
+        const was_involved_in_last_reaction = ((a == last_a && b == last_b) || (a == last_b && b == last_a));
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = was_involved_in_last_reaction ? (scale / 12) : (scale / 20);
+        ctx.beginPath();
         ctx.moveTo( atoms[a].p.x * scale + offset.x, atoms[a].p.y * scale + offset.y );
         ctx.lineTo( atoms[b].p.x * scale + offset.x, atoms[b].p.y * scale + offset.y );
+        ctx.stroke();
     });
-    ctx.stroke();
 
     // draw atoms
-    atoms.forEach( atom => drawAtom(atom) );
+    for(var i = 0; i < atoms.length; i++) {
+        const was_involved_in_last_reaction = (i == last_a || i == last_b);
+        drawAtom(atoms[i], was_involved_in_last_reaction);
+    }
 }
 
-function drawAtom(atom) {
+function drawAtom(atom, was_involved_in_last_reaction) {
     ctx.strokeStyle = 'black';
     ctx.fillStyle = 'white';
-    ctx.lineWidth = scale / 20;
+    ctx.lineWidth = was_involved_in_last_reaction ? (scale / 12) : (scale / 20);
     ctx.beginPath();
     ctx.arc( atom.p.x * scale + offset.x, atom.p.y * scale + offset.y, radius * scale, 0, Math.PI * 2 );
     ctx.fill();
@@ -522,7 +531,7 @@ html, body {
 <body>
 
 <canvas id="canvas" width="1000" height="600" style="z-index:-1">(Canvas drawing not supported by your browser.)</canvas>
-<input type="button" style="z-index:1; position:absolute; top:20px; left:20px" value="next reaction" onclick='onNextButton()'/>
-<textarea id="reactions_applied" cols="40" rows="5" style="z-index:1; position:absolute; top:60px; left:20px; width:150px; height:300px" readonly></textarea>
+<input type="button" style="z-index:1; position:absolute; top:20px; left:20px; width:150px; height:40px" value="next reaction" onclick='onNextButton()'/>
+<textarea id="reactions_applied" cols="20" rows="10" style="z-index:1; position:absolute; top:70px; left:20px; width:150px; height:300px" readonly></textarea>
 
 </html>
