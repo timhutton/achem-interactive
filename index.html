@@ -241,17 +241,15 @@ function init() {
 
 function init_simple_rep() {
 
-    // new scheme to replicate a strand without being ladder-bonded throughout
+    // new (July 2022) scheme to replicate a strand without being ladder-bonded throughout
 
     reactions = [
-        // replication reactions. 0=food, 1=strand, 2=old strand, 3=ready to pair, 4567=others
+        // replication reactions. 0=food, 1=strand, 2=old strand, 3=ready to pair
         reaction('x',2,true,'y',1,4,true,3,false),
         reaction('x',3,false,'x',0,6,true,7,false),
         reaction('x',7,false,'y',5,5,true,7,false),
         reaction('x',4,true,'y',7,2,false,2,false),
         reaction('x',2,true,'y',6,2,true,2,false),
-
-        reaction('h',2,true,'h',5,2,false,2,false), // handle the end
     ];
 
     // make a strand of DNA
@@ -275,7 +273,6 @@ function init_simple_rep() {
 function init_linear_enzymes() {
 
     reactions = [
-
     ];
 
     // make a loop
