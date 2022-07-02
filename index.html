@@ -84,7 +84,12 @@ function onUp( evt ) {
 }
 
 function onNextButton() {
-    max_reactions_to_apply++;
+    allow_next_reaction = true;
+}
+
+function onPrevButton() {
+    popHistory();
+    redraw();
 }
 
 // thanks to: http://stackoverflow.com/a/12714084/126823
@@ -205,6 +210,23 @@ function resize() {
     offset = p2( canvas.width / 2, canvas.height / 2 );
 }
 
+function pushHistory() {
+    states.push( {
+        atoms: structuredClone(atoms),
+        bonds: structuredClone(bonds),
+        reactions_history: document.getElementById('reactions_applied').value
+    } );
+}
+
+function popHistory() {
+    if( states.length > 0 ) {
+        const state = states.pop();
+        atoms = state.atoms;
+        bonds = state.bonds;
+        document.getElementById('reactions_applied').value = state.reactions_history;
+    }
+}
+
 function init() {
     canvas = document.getElementById('canvas');
     resize();
@@ -216,10 +238,8 @@ function init() {
     bonds = [];
     reactions = [];
     isDragging = false;
-    n_reactions_applied = 0;
-    max_reactions_to_apply = 0;
-    last_a = -1;
-    last_b = -1;
+    allow_next_reaction = false;
+    states = [];
 
     //init_2007paper();
     init_simple_rep();
@@ -473,8 +493,9 @@ function doChemistry() {
                 }
             }
             if( closest_b_candidate >= 0 ) {
-                const iB = closest_b_candidate;
+                pushHistory();
                 // apply the reaction
+                const iB = closest_b_candidate;
                 var b = atoms[iB];
                 a.state = r.a_post;
                 b.state = r.b_post;
@@ -484,14 +505,12 @@ function doChemistry() {
                 if( !r.bonded_pre && r.bonded_post ) {
                     addBond( iA, iB );
                 }
-                n_reactions_applied++;
                 // show the reaction that was applied
                 const box = document.getElementById('reactions_applied');
                 box.value += '\n' + reaction_to_string(r);
                 box.scrollTop = box.scrollHeight;
-                // remember which atoms were last reacted, for drawing
-                last_a = iA;
-                last_b = iB;
+                // prevent next reaction from happening automatically
+                allow_next_reaction = false;
                 return;
             }
         }
@@ -507,9 +526,8 @@ function redraw() {
     // draw bonds
     bonds.forEach( bond => {
         const [a, b] = bond;
-        const was_involved_in_last_reaction = ((a == last_a && b == last_b) || (a == last_b && b == last_a));
         ctx.strokeStyle = 'black';
-        ctx.lineWidth = was_involved_in_last_reaction ? (scale / 12) : (scale / 20);
+        ctx.lineWidth = scale / 20;
         ctx.beginPath();
         ctx.moveTo( atoms[a].p.x * scale + offset.x, atoms[a].p.y * scale + offset.y );
         ctx.lineTo( atoms[b].p.x * scale + offset.x, atoms[b].p.y * scale + offset.y );
@@ -518,17 +536,16 @@ function redraw() {
 
     // draw atoms
     for(var i = 0; i < atoms.length; i++) {
-        const was_involved_in_last_reaction = (i == last_a || i == last_b);
-        drawAtom(atoms[i], was_involved_in_last_reaction);
+        drawAtom(atoms[i]);
     }
 }
 
-function drawAtom(atom, was_involved_in_last_reaction) {
+function drawAtom(atom) {
     const color_dictionary = {'a':'rgb(255,204,204)', 'b':'rgb(204,255,204)', 'c':'rgb(204,204,255)',
                               'd':'rgb(255,255,204)', 'e':'rgb(204,255,255)', 'f':'rgb(255,204,255)'};
     ctx.strokeStyle = 'black';
     ctx.fillStyle = color_dictionary[atom.type];
-    ctx.lineWidth = was_involved_in_last_reaction ? (scale / 15) : (scale / 20);
+    ctx.lineWidth = scale / 20;
     ctx.beginPath();
     ctx.arc( atom.p.x * scale + offset.x, atom.p.y * scale + offset.y, radius * scale, 0, Math.PI * 2 );
     ctx.fill();
@@ -545,7 +562,7 @@ function drawAtom(atom, was_involved_in_last_reaction) {
 
 function animate() {
     const is_relaxed = relax();
-    if( is_relaxed && n_reactions_applied < max_reactions_to_apply ) {
+    if( is_relaxed && allow_next_reaction ) {
         doChemistry();
     }
     redraw();
@@ -575,7 +592,8 @@ html, body {
 <body>
 
 <canvas id="canvas" width="1000" height="600" style="z-index:-1">(Canvas drawing not supported by your browser.)</canvas>
-<input type="button" style="z-index:1; position:absolute; top:20px; left:20px; width:150px; height:40px" value="next reaction" onclick='onNextButton()'/>
+<input value="< prev" type="button" style="z-index:1; position:absolute; top:20px; left:20px; width:70px; height:40px" onclick='onPrevButton()'/>
+<input value="next >" type="button" style="z-index:1; position:absolute; top:20px; left:100px; width:70px; height:40px" onclick='onNextButton()'/>
 <textarea id="reactions_applied" cols="20" rows="10" style="z-index:1; position:absolute; top:70px; left:20px; width:150px; height:300px" readonly></textarea>
 
 </html>
