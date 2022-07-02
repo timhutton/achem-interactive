@@ -201,7 +201,7 @@ function hasBond( iA, iB ) {
 function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    scale = Math.min( canvas.width, canvas.height ) / 10;
+    scale = Math.min( canvas.width, canvas.height ) / 12;
     offset = p2( canvas.width / 2, canvas.height / 2 );
 }
 
@@ -223,6 +223,7 @@ function init() {
 
     //init_2007paper();
     init_simple_rep();
+    //init_simple_rep_and_enzymes();
     //init_linear_enzymes();
 
     canvas.addEventListener( 'mousemove', onMouseMove, false );
@@ -239,17 +240,61 @@ function init() {
     animate();
 }
 
+function init_simple_rep_and_enzymes() {
+
+    reactions = [
+        // handle start of enzyme production
+        reaction('f',4,false,'x',7,2,false,5),
+
+        // replication/enzyme production reactions. 0=food, 1=strand, 2=old strand, 3=ready to pair
+        reaction('x',2,true,'y',1,4,true,3),
+        reaction('x',3,false,'x',0,6,true,7),
+        reaction('x',7,false,'y',5,5,true,7),
+        reaction('x',4,true,'y',7,2,false,2),
+        reaction('x',2,true,'y',6,2,true,2),
+
+        // handle enzyme separators (e8)
+        reaction('x',2,true,'e',8,9,true,2),
+        reaction('x',9,true,'x',5,2,false,2),
+        reaction('e',4,false,'x',7,10,false,5),
+        reaction('e',10,true,'x',6,11,true,2),
+
+        // handle end of enzyme production and start of splitting
+        reaction('f',5,true,'x',2,12,false,2),
+
+        // TODO: ensure enzymes produced on same side
+        // TODO: trigger opposite sequence (rep/enzymes) at the end
+    ];
+
+    // make a strand of DNA
+    var spec = 'fadceadbcf';
+    var dna = [];
+    for(var i = 0; i < spec.length; i++) {
+        const p = p2( 0, (i - spec.length/2) * target_bond_length );
+        if( i == 0 ) {
+            dna.push( addAtom( p, spec[i], 2 ) );
+            addAtom( p2( p.x + 1.4 * target_bond_length, p.y + 0.3 * target_bond_length ), spec[i], 0 ); // food
+        }
+        else {
+            const state = (spec[i] == 'e' ? 8 : 1);
+            dna.push( addAtom( p, spec[i], state ) );
+            addAtom( p2( p.x + 1.4 * target_bond_length, p.y + 0.3 * target_bond_length ), spec[i], 0 ); // food
+            addBond( dna[i], dna[i-1] );
+        }
+    }
+}
+
 function init_simple_rep() {
 
     // new (July 2022) scheme to replicate a strand without being ladder-bonded throughout
 
     reactions = [
         // replication reactions. 0=food, 1=strand, 2=old strand, 3=ready to pair
-        reaction('x',2,true,'y',1,4,true,3,false),
-        reaction('x',3,false,'x',0,6,true,7,false),
-        reaction('x',7,false,'y',5,5,true,7,false),
-        reaction('x',4,true,'y',7,2,false,2,false),
-        reaction('x',2,true,'y',6,2,true,2,false),
+        reaction('x',2,true,'y',1,4,true,3),
+        reaction('x',3,false,'x',0,6,true,7),
+        reaction('x',7,false,'y',5,5,true,7),
+        reaction('x',4,true,'y',7,2,false,2),
+        reaction('x',2,true,'y',6,2,true,2),
     ];
 
     // make a strand of DNA
@@ -313,56 +358,56 @@ function init_linear_enzymes() {
 function init_2007paper() {
     reactions = [
         // prepare for genome duplication
-        reaction('a',40,true,'e',1,10,true,5,false),
-        reaction('a',10,false,'e',6,40,true,3,false),
-        reaction('e',6,true,'e',3,2,true,3,false),
+        reaction('a',40,true,'e',1,10,true,5),
+        reaction('a',10,false,'e',6,40,true,3),
+        reaction('e',6,true,'e',3,2,true,3),
 
         // genome duplication
-        reaction('x',2,true,'y',1,7,true,4,false),
-        reaction('x',4,false,'y',3,5,true,7,false),
-        reaction('x',5,false,'x',0,6,true,6,false),
-        reaction('x',6,false,'y',7,3,true,4,false),
-        reaction('x',6,true,'y',4,1,false,2,false),
-        reaction('x',7,true,'y',1,2,true,2,false),
+        reaction('x',2,true,'y',1,7,true,4),
+        reaction('x',4,false,'y',3,5,true,7),
+        reaction('x',5,false,'x',0,6,true,6),
+        reaction('x',6,false,'y',7,3,true,4),
+        reaction('x',6,true,'y',4,1,false,2),
+        reaction('x',7,true,'y',1,2,true,2),
 
         // prepare for genome splitting
-        reaction('f',2,true,'a',40,9,true,11,false),
-        reaction('a',11,false,'f',3,11,true,9,false),
+        reaction('f',2,true,'a',40,9,true,11),
+        reaction('a',11,false,'f',3,11,true,9),
 
         // genome splitting
-        reaction('x',2,true,'y',8,9,true,1,false),
-        reaction('x',9,true,'y',9,8,false,8,false),
+        reaction('x',2,true,'y',8,9,true,1),
+        reaction('x',9,true,'y',9,8,false,8),
 
         // start the cell division
-        reaction('a',11,true,'a',39,11,true,12,false),
-        reaction('f',1,false,'a',12,13,true,40,false),
+        reaction('a',11,true,'a',39,11,true,12),
+        reaction('f',1,false,'a',12,13,true,40),
 
         // the pulling sequence
-        reaction('x',13,true,'y',1,14,true,15,false),
-        reaction('a',11,false,'x',15,11,true,16,false),
-        reaction('x',14,true,'y',16,29,true,16,false), // state 29 borrowed from later
-        reaction('x',29,true,'a',11,17,false,11,false),
-        reaction('x',17,true,'y',16,17,true,13,false),
+        reaction('x',13,true,'y',1,14,true,15),
+        reaction('a',11,false,'x',15,11,true,16),
+        reaction('x',14,true,'y',16,29,true,16), // state 29 borrowed from later
+        reaction('x',29,true,'a',11,17,false,11),
+        reaction('x',17,true,'y',16,17,true,13),
         // plus
-        reaction('x',13,true,'e',8,14,true,15,false),
+        reaction('x',13,true,'e',8,14,true,15),
 
         // finish the cell division
-        reaction('e',13,true,'a',40,18,true,19,false),
-        reaction('e',13,true,'a',19,18,true,20,false),
-        reaction('a',20,false,'a',11,21,true,22,false),
-        reaction('e',18,true,'a',22,35,false,23,false), // 35 borrowed from later
-        reaction('e',18,true,'a',21,35,false,24,false),
-        reaction('a',23,true,'a',40,25,true,26,false),
-        reaction('a',25,true,'a',40,27,true,26,false),
-        reaction('a',24,false,'a',26,28,true,29,false),
-        reaction('a',29,true,'a',27,40,false,30,false),
-        reaction('a',30,true,'a',26,31,true,40,false),
-        reaction('a',28,true,'a',39,32,true,33,false),
-        reaction('a',32,true,'a',39,34,true,33,false),
-        reaction('a',33,false,'a',31,39,true,36,false),
-        reaction('a',34,true,'a',39,35,false,39,false),
-        reaction('a',35,true,'a',33,37,true,39,false),
-        reaction('a',37,true,'a',36,40,false,40,false),
+        reaction('e',13,true,'a',40,18,true,19),
+        reaction('e',13,true,'a',19,18,true,20),
+        reaction('a',20,false,'a',11,21,true,22),
+        reaction('e',18,true,'a',22,35,false,23), // 35 borrowed from later
+        reaction('e',18,true,'a',21,35,false,24),
+        reaction('a',23,true,'a',40,25,true,26),
+        reaction('a',25,true,'a',40,27,true,26),
+        reaction('a',24,false,'a',26,28,true,29),
+        reaction('a',29,true,'a',27,40,false,30),
+        reaction('a',30,true,'a',26,31,true,40),
+        reaction('a',28,true,'a',39,32,true,33),
+        reaction('a',32,true,'a',39,34,true,33),
+        reaction('a',33,false,'a',31,39,true,36),
+        reaction('a',34,true,'a',39,35,false,39),
+        reaction('a',35,true,'a',33,37,true,39),
+        reaction('a',37,true,'a',36,40,false,40),
     ];
 
     // make a loop
@@ -479,7 +524,8 @@ function redraw() {
 }
 
 function drawAtom(atom, was_involved_in_last_reaction) {
-    const color_dictionary = {'a':'rgb(255,204,204)', 'b':'rgb(204,255,204)', 'c':'rgb(204,204,255)', 'd':'rgb(255,255,204)'};
+    const color_dictionary = {'a':'rgb(255,204,204)', 'b':'rgb(204,255,204)', 'c':'rgb(204,204,255)',
+                              'd':'rgb(255,255,204)', 'e':'rgb(204,255,255)', 'f':'rgb(255,204,255)'};
     ctx.strokeStyle = 'black';
     ctx.fillStyle = color_dictionary[atom.type];
     ctx.lineWidth = was_involved_in_last_reaction ? (scale / 15) : (scale / 20);
