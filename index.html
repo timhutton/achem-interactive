@@ -241,8 +241,8 @@ function init() {
     allow_next_reaction = false;
     states = [];
 
-    //init_cell_rep();
-    init_simple_rep();
+    init_cell_rep();
+    //init_simple_rep();
     //init_2007paper();
 
     canvas.addEventListener( 'mousemove', onMouseMove, false );
@@ -274,6 +274,14 @@ function init_cell_rep() {
         reaction('x',8,true,'y',9,1,true,4),
 
         // handle enzyme separators
+        reaction('e',10,true,'x',2,11,true,9),
+        reaction('e',11,false,'x',5,12,false,7),
+        reaction('x',8,true,'e',12,8,true,13),
+        reaction('e',13,true,'x',1,14,true,3),
+        reaction('e',14,true,'x',8,15,true,1),
+        reaction('e',15,false,'x',7,16,false,5),
+        reaction('e',16,true,'x',6,17,true,2),
+        reaction('e',17,true,'x',9,18,true,4),
 
         // handle end
 
