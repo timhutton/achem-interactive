@@ -310,11 +310,12 @@ function init_simple_rep() {
 
     reactions = [
         // replication reactions. 0=food, 1=strand, 2=old strand, 3=ready to pair
-        reaction('x',2,true,'y',1,4,true,3),
+        reaction('x',2,true,'y',1,9,true,3),
         reaction('x',3,false,'x',0,6,true,7),
         reaction('x',7,false,'y',5,5,true,7),
-        reaction('x',4,true,'y',7,2,false,2),
-        reaction('x',2,true,'y',6,2,true,2),
+        reaction('x',4,true,'y',7,8,false,1),
+        reaction('x',8,true,'y',6,8,true,2),
+        reaction('x',8,true,'y',9,1,true,4),
     ];
 
     // make a strand of DNA
@@ -326,6 +327,8 @@ function init_simple_rep() {
             dna.push( addAtom( p, spec[i], 2 ) );
             const a = addAtom( p2( p.x + target_bond_length, p.y ), spec[i], 5 );
             addBond( dna[0], a );
+            const pre = addAtom( p2( p.x, p.y - target_bond_length ), spec[i], 8 );
+            addBond( dna[0], pre );
         }
         else {
             dna.push( addAtom( p, spec[i], 1 ) );
