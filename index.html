@@ -241,8 +241,9 @@ function init() {
     allow_next_reaction = false;
     states = [];
 
+    init_cell_rep();
     //init_2007paper();
-    init_simple_rep();
+    //init_simple_rep();
     //init_simple_rep_and_enzymes();
     //init_linear_enzymes();
 
@@ -258,6 +259,65 @@ function init() {
 
     redraw();
     animate();
+}
+
+function init_cell_rep() {
+
+    reactions = [
+        // step 1: produce enzymes on empty half of cell
+        reaction('x',2,true,'y',1,4,true,3),
+        reaction('x',3,false,'x',0,6,true,7),
+        reaction('x',7,false,'y',5,5,true,7),
+        reaction('x',4,true,'y',7,2,false,2),
+        reaction('x',2,true,'y',6,2,true,2),
+
+        // step 2: duplicate the sequence and pull the membrane in
+
+        // step 3: separate the two cells
+    ];
+
+    // make a loop
+    var loop = [];
+    const n = 28;
+    const circumference = n * target_bond_length;
+    const r = circumference / ( 2 * Math.PI );
+    for(var i = 0; i < n; i++) {
+        const theta = i * 2 * Math.PI / n;
+        const p = p2( r * Math.sin( theta ), -r * Math.cos( theta ) );
+        loop.push( addAtom( p, 'a', 39 ) );
+        if( i > 0 ) {
+            addBond( loop[i], loop[i-1] );
+        }
+    }
+    addBond( loop[0], loop[n-1] );
+    atoms[ loop[0] ].state = 40;
+    atoms[ loop[1] ].state = 41;
+    atoms[ loop[n/2] ].state = 40;
+
+    // make a strand of DNA
+    var spec = 'fabecdaf';
+    var dna = [];
+    var enzyme = [];
+    for(var i = 0; i < spec.length; i++) {
+        const p = p2( 0, (i + 1) * target_bond_length - r );
+        dna.push( addAtom( p, spec[i], 1 ) );
+        if( i > 0 ) {
+            addBond( dna[i], dna[i-1] );
+        }
+        // also add unbonded atoms on the right (food)
+        if( 'abcd'.includes( spec[i] ) ) {
+            addAtom( p2( p.x + target_bond_length, p.y ), spec[i], 0 );
+        }
+        // also add enzymes on the left
+        if( 'abcd'.includes(spec[i]) ) {
+            enzyme.push( addAtom( p2( p.x - target_bond_length, p.y), spec[i], 1) );
+            if( i > 0 && 'abcd'.includes(spec[i-1])) {
+                addBond( enzyme[enzyme.length - 1], enzyme[enzyme.length - 2] );
+            }
+        }
+    }
+    addBond( dna[0], loop[0] );
+    addBond( dna[dna.length - 1], loop[n / 2] );
 }
 
 function init_simple_rep_and_enzymes() {
